@@ -1,0 +1,16 @@
+[Unit]
+Description=NumMaiLai - MWA Water Outage Notifier Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=%I
+WorkingDirectory=/home/%I/Documents/NumMaiLai
+ExecStart=/usr/bin/python3 -m nummailai daemon --interval 15
+Restart=on-failure
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

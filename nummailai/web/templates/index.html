@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NumMaiLai - ระบบแจ้งเตือนน้ำประปาไม่ไหล MWA</title>
+  <!-- Google Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Navigation Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="logo-badge">💧</div>
+        <div>
+          <h1>NumMaiLai <span class="sub-brand">น้ำไม่ไหล (MWA Notifier)</span></h1>
+          <p class="tagline">ระบบตรวจจับและแจ้งเตือนเหตุน้ำประปาไม่ไหล / ซ่อมบำรุงท่อ การประปานครหลวง</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="btn-check-now" class="btn btn-secondary">
+          <span class="icon">🔄</span> ตรวจสอบข้อมูลสด (Check Now)
+        </button>
+        <button id="btn-save-config" class="btn btn-primary">
+          <span class="icon">💾</span> บันทึกการตั้งค่า (Save)
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content Area: Split View -->
+    <main class="main-content">
+      <!-- Left: Interactive Map -->
+      <section class="map-section">
+        <div class="map-toolbar">
+          <div class="badge-stats">
+            <span class="stat-pill"><strong id="total-events-count">0</strong> เหตุการณ์ทั้งหมด</span>
+            <span class="stat-pill stat-matched"><strong id="matched-events-count">0</strong> ตรงกับพื้นที่ของคุณ</span>
+          </div>
+          <div class="map-legend">
+            <span class="legend-item"><span class="dot dot-urgent"></span> ท่อแตกรั่ว (ฉุกเฉิน)</span>
+            <span class="legend-item"><span class="dot dot-valve"></span> ปิดประตูน้ำ</span>
+            <span class="legend-item"><span class="dot dot-connect"></span> ตัดบรรจบ</span>
+            <span class="legend-item"><span class="dot dot-maintain"></span> บำรุงรักษา/Step Test</span>
+            <span class="legend-item"><span class="dot dot-home"></span> พิกัดบ้านของคุณ</span>
+          </div>
+        </div>
+        <div id="map"></div>
+        <div class="map-hint">💡 <strong>คำแนะนำ:</strong> สามารถคลิกบนแผนที่เพื่อย้ายพิกัดบ้านของคุณ หรือลากหมุดสีน้ำเงินเพื่อปรับตำแหน่ง</div>
+      </section>
+
+      <!-- Right: Settings & Events Tabs -->
+      <aside class="sidebar-section">
+        <div class="tabs-header">
+          <button class="tab-btn active" data-tab="tab-matching">🎯 ตั้งค่าพื้นที่แจ้งเตือน</button>
+          <button class="tab-btn" data-tab="tab-discord">💬 Discord Webhook</button>
+          <button class="tab-btn" data-tab="tab-events">📋 รายการเหตุการณ์ (<span id="tab-events-badge">0</span>)</button>
+        </div>
+
+        <!-- Tab 1: Matching Rules -->
+        <div id="tab-matching" class="tab-pane active">
+          <div class="card">
+            <h3>📍 โหมดการกรองพื้นที่ (Matching Mode)</h3>
+            <div class="form-group">
+              <select id="matching-mode" class="form-control">
+                <option value="hybrid">✨ Hybrid (แจ้งเตือนเมื่อตรงกับรัศมี หรือ คำค้นหา หรือ สาขา)</option>
+                <option value="radius_only">📍 รัศมีพิกัด GPS เท่านั้น (Radius Only)</option>
+                <option value="keywords_only">🔑 คำค้นหาข้อความเท่านั้น (Keywords Only)</option>
+                <option value="branch_only">🏢 สาขาการประปาเท่านั้น (Branch Only)</option>
+                <option value="all">🔒 ต้องตรงกับทุกเงื่อนไข (All Must Match)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header-toggle">
+              <h3>📍 1. พิกัดและรัศมี (GPS Location & Radius)</h3>
+              <label class="switch">
+                <input type="checkbox" id="location-enabled" checked>
+                <span class="slider round"></span>
+              </label>
+            </div>
+            <div class="form-row">
+              <div class="form-group col">
+                <label for="loc-lat">ละติจูด (Latitude):</label>
+                <input type="number" step="0.000001" id="loc-lat" class="form-control" value="13.7563">
+              </div>
+              <div class="form-group col">
+                <label for="loc-lng">ลองจิจูด (Longitude):</label>
+                <input type="number" step="0.000001" id="loc-lng" class="form-control" value="100.5018">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="loc-radius">รัศมีการแจ้งเตือน: <strong id="radius-val">5.0</strong> กม. (Kilometers)</label>
+              <input type="range" min="0.5" max="30.0" step="0.5" id="loc-radius" class="range-slider" value="5.0">
+            </div>
+            <button id="btn-use-my-location" class="btn btn-outline btn-sm">
+              🧭 ใช้ตำแหน่งปัจจุบันของฉัน (GPS)
+            </button>
+          </div>
+
+          <div class="card">
+            <div class="card-header-toggle">
+              <h3>🔑 2. คำค้นหาพื้นที่/ถนน/ซอย (Keywords)</h3>
+              <label class="switch">
+                <input type="checkbox" id="keywords-enabled" checked>
+                <span class="slider round"></span>
+              </label>
+            </div>
+            <p class="help-text">กรอกชื่อถนน, ซอย, ตำบล หรือชื่อหมู่บ้าน (กด Enter หรือใส่เครื่องหมายจุลภาคเพื่อเพิ่มคำ)</p>
+            <div class="keyword-input-box">
+              <input type="text" id="keyword-input" class="form-control" placeholder="เช่น ประชาอุทิศ, ราชพฤกษ์, พระราม 5...">
+              <button id="btn-add-keyword" class="btn btn-secondary">เพิ่ม</button>
+            </div>
+            <div id="keywords-tags" class="tags-container"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-header-toggle">
+              <h3>🏢 3. สาขาการประปานครหลวง (MWA Branches)</h3>
+              <label class="switch">
+                <input type="checkbox" id="branches-enabled">
+                <span class="slider round"></span>
+              </label>
+            </div>
+            <p class="help-text">เลือกสาขาที่ต้องการรับการแจ้งเตือน (ปล่อยว่างเพื่อรับทุกสาขา)</p>
+            <div id="branches-checkboxes" class="checkbox-grid"></div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Discord Notifications -->
+        <div id="tab-discord" class="tab-pane">
+          <div class="card">
+            <div class="card-header-toggle">
+              <h3>💬 การตั้งค่า Discord Webhook</h3>
+              <label class="switch">
+                <input type="checkbox" id="discord-enabled" checked>
+                <span class="slider round"></span>
+              </label>
+            </div>
+            <div class="form-group">
+              <label for="discord-webhook-url">Discord Webhook URL:</label>
+              <input type="url" id="discord-webhook-url" class="form-control" placeholder="https://discord.com/api/webhooks/...">
+              <p class="help-text">สร้าง Webhook ได้ใน Server Settings > Integrations > Webhooks บน Discord</p>
+            </div>
+            <div class="form-group">
+              <label for="discord-username">ชื่อบอทแสดงผล (Bot Username):</label>
+              <input type="text" id="discord-username" class="form-control" value="MWA Alert (น้ำไม่ไหล)">
+            </div>
+            <button id="btn-test-discord" class="btn btn-discord">
+              🔔 ส่งข้อความทดสอบไปยัง Discord (Test Webhook)
+            </button>
+            <div id="discord-test-status" class="status-msg"></div>
+          </div>
+
+          <div class="card">
+            <h3>⏱️ การตรวจสอบอัตโนมัติ (Polling Daemon)</h3>
+            <div class="form-group">
+              <label for="polling-interval">ความถี่ในการตรวจสอบเบื้องหลัง (นาที):</label>
+              <input type="number" min="1" max="1440" id="polling-interval" class="form-control" value="15">
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Live Events Feed -->
+        <div id="tab-events" class="tab-pane">
+          <div class="events-filter-bar">
+            <input type="text" id="events-search" class="form-control" placeholder="🔍 ค้นหาในรายการเหตุการณ์...">
+            <select id="events-filter-type" class="form-control">
+              <option value="all">เหตุการณ์ทั้งหมด</option>
+              <option value="matched">เฉพาะที่ตรงกับเงื่อนไขคุณ</option>
+              <option value="urgent">เฉพาะท่อแตกรั่ว (ฉุกเฉิน)</option>
+              <option value="active">เฉพาะที่กำลังดำเนินการ</option>
+            </select>
+          </div>
+          <div id="events-list" class="events-list-container">
+            <div class="loading-state">กำลังโหลดข้อมูลจาก MWA...</div>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <!-- Global Toast Notification -->
+    <div id="toast" class="toast"></div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <!-- App JS -->
+  <script src="/static/app.js"></script>
+</body>
+</html>

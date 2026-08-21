@@ -1,0 +1,58 @@
+# ==========================================================
+# NumMaiLai (น้ำไม่ไหล) - Configuration
+# ระบบแจ้งเตือนเหตุน้ำประปาไม่ไหล การประปานครหลวง (MWA)
+# ==========================================================
+
+# 1. การตั้งค่าการกรองพื้นที่ (Matching Criteria)
+matching:
+  # โหมดการทำงาน:
+  # - hybrid        : แจ้งเตือนเมื่อตรงกับ รัศมีพิกัด หรือ คำค้นหา หรือ สาขา (แนะนำ)
+  # - radius_only   : แจ้งเตือนเฉพาะเหตุการณ์ที่อยู่ในรัศมีพิกัด GPS เท่านั้น
+  # - keywords_only : แจ้งเตือนเฉพาะเหตุการณ์ที่มีคำค้นหาตรงกับชื่อถนน/ซอย/พื้นที่
+  # - branch_only   : แจ้งเตือนเฉพาะสาขาที่กำหนด
+  # - all           : ต้องตรงกับทุกเงื่อนไขที่เปิดใช้งาน
+  mode: "hybrid"
+
+  # กรองด้วยพิกัดและรัศมี (GPS Proximity Radius)
+  location:
+    enabled: true
+    latitude: 13.824096      # พิกัดบ้าน/ที่ทำงานของคุณ (Latitude)
+    longitude: 100.447783    # พิกัดบ้าน/ที่ทำงานของคุณ (Longitude)
+    radius_km: 5.0           # รัศมีการแจ้งเตือน (กิโลเมตร)
+
+  # กรองด้วยคำค้นหา (Keywords) - ค้นหาในชื่อถนน, ซอย, จุดปฏิบัติงาน
+  keywords:
+    enabled: true
+    terms:
+      - "ประชาอุทิศ"
+      - "พระราม 5"
+      - "ราชพฤกษ์"
+      - "นครอินทร์"
+      - "รัตนาธิเบศร์"
+
+  # กรองด้วยสาขาการประปานครหลวง (MWA Branches)
+  branches:
+    enabled: false
+    names:
+      - "มหาสวัสดิ์"
+      - "นนทบุรี"
+
+# 2. การตั้งค่าช่องทางการแจ้งเตือน (Notification Channels)
+notifications:
+  # Discord Webhook (Rich Embeds)
+  discord:
+    enabled: true
+    webhook_url: ""  # ใส่ Discord Webhook URL เช่น https://discord.com/api/webhooks/...
+    username: "MWA Alert (น้ำไม่ไหล)"
+    avatar_url: "https://gisonline.mwa.co.th/GIS1125/SRC/resources/mwa-icon.png"
+
+  # Telegram Bot (Optional)
+  telegram:
+    enabled: false
+    bot_token: ""
+    chat_id: ""
+
+# 3. การตรวจสอบเบื้องหลังและการบันทึกประวัติ (Polling & State)
+polling:
+  interval_minutes: 15       # ความถี่ในการตรวจสอบเมื่อรันโหมด daemon (นาที)
+  state_file: "data/state.json" # ไฟล์เก็บประวัติเหตุการณ์ที่เคยแจ้งเตือนแล้วเพื่อป้องกันการแจ้งเตือนซ้ำ
